@@ -9,9 +9,9 @@ export interface RawSignerConfig {
   source?: { s3?: { bucketName?: unknown; prefix?: unknown } };
   destination?: { s3?: { bucketName?: unknown; prefix?: unknown } };
   /**
-   * Accepted for drop-in compatibility with @ioiotv/serverless-aws-signer and
-   * deliberately ignored: this plugin never creates or revokes signing profiles
-   * or buckets, so there is nothing for it to retain.
+   * Accepted for compatibility with configs carried over from other signing
+   * plugins, and deliberately ignored: this plugin never creates or revokes
+   * signing profiles or buckets, so there is nothing for it to retain.
    */
   retain?: unknown;
 }

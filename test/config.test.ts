@@ -25,9 +25,9 @@ describe('parseEnabled', () => {
     expect(parseEnabled(' FALSE ')).toBe(false);
   });
 
-  // The vendor plugin read this value in its constructor, before Serverless had
-  // resolved variables, and an unresolved "${...}" is a truthy string -- so it
-  // signed even when the flag said false.
+  // Reading this in the constructor, before Serverless has resolved variables,
+  // would sign even when the flag says false: an unresolved "${...}" is a
+  // truthy string.
   it('refuses to guess when the variable is unresolved', () => {
     expect(() => parseEnabled('${self:custom.env.ENABLED_AWS_SIGNER}')).toThrow(SignerConfigError);
     expect(() => parseEnabled('${self:custom.env.ENABLED_AWS_SIGNER}')).toThrow(/unresolved/i);

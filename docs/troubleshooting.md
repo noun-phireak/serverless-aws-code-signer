@@ -206,3 +206,5 @@ aws lambda delete-function-code-signing-config --function-name <name>
 Run with `--verbose` for the plugin's debug output, which includes signing job polling status.
 
 Open an issue at [github.com/noun-phireak/serverless-aws-code-signer/issues](https://github.com/noun-phireak/serverless-aws-code-signer/issues) with the error, your `custom.signer` block (redact bucket and profile names), and your Serverless version.
+
+> **Found a security problem rather than a bug?** Do not open a public issue. Follow the [security policy](../SECURITY.md) to report it privately.

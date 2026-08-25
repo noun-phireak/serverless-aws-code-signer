@@ -44,9 +44,9 @@ const sha256Base64 = (bytes: Uint8Array): string =>
 /**
  * Look up the signing profile.
  *
- * Unlike @ioiotv/serverless-aws-signer this never creates a missing profile: a
- * typo in `profileName` must fail the deploy, not mint a fresh unreviewed
- * profile that happens to satisfy the config.
+ * This never creates a missing profile: a typo in `profileName` must fail the
+ * deploy, not mint a fresh unreviewed profile that happens to satisfy the
+ * config.
  */
 export async function getActiveProfileVersionArn(
   signer: SignerClient,
@@ -146,12 +146,12 @@ async function waitForSigningJob(
  * Stage one artifact in S3, sign it, and replace the local zip with the signed
  * bytes.
  *
- * The write is `fsp.writeFile` and is genuinely awaited. The vendor plugin used
- * the callback-style `fs.writeFile` with no callback; because Serverless
- * gracefulify's `fs`, that returned immediately with the zip truncated to zero
- * bytes, and `package:compileFunctions` then hashed the empty file into
- * `AWS::Lambda::Version.CodeSha256` while the complete artifact was what
- * actually got uploaded.
+ * The write is `fsp.writeFile` and is genuinely awaited. Callback-style
+ * `fs.writeFile` with no callback is a trap here: because Serverless
+ * gracefulify's `fs`, it returns immediately with the zip truncated to zero
+ * bytes, and `package:compileFunctions` then hashes the empty file into
+ * `AWS::Lambda::Version.CodeSha256` while the complete artifact is what
+ * actually gets uploaded.
  */
 export async function signArtifact(
   clients: SigningClients,
@@ -222,9 +222,8 @@ export async function signArtifact(
 
   await fsp.writeFile(target.artifactPath, signedBytes);
 
-  // Read the size back off disk. This is the assertion the vendor plugin was
-  // missing, and it is what turns the truncation bug into a failed deploy
-  // rather than a CodeSha256 mismatch inside CloudFormation.
+  // Read the size back off disk. This assertion turns a truncated write into a
+  // failed deploy rather than a CodeSha256 mismatch inside CloudFormation.
   const written = await fsp.stat(target.artifactPath);
   if (written.size !== signedBytes.length) {
     throw new SigningError(

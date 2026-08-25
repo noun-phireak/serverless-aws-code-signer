@@ -86,8 +86,8 @@ describe('getActiveProfileVersionArn', () => {
     );
   });
 
-  // The vendor plugin called createSigningProfile() here, so a typo in
-  // profileName silently produced a brand new, unreviewed signing profile.
+  // Creating the profile here instead would mean a typo in profileName
+  // silently produces a brand new, unreviewed signing profile.
   it('fails instead of creating a missing profile', async () => {
     const notFound = Object.assign(new Error('nope'), { name: 'ResourceNotFoundException' });
     signerMock.on(GetSigningProfileCommand).rejects(notFound);
@@ -177,8 +177,8 @@ describe('signArtifact', () => {
     ).rejects.toThrow(/unsupported format/);
   });
 
-  // The vendor plugin polled describeSigningJob in a while loop with no delay
-  // and no timeout, so a stuck job spun forever against the Signer API.
+  // Polling describeSigningJob with no delay and no timeout would spin forever
+  // against the Signer API on a stuck job.
   it('gives up on a job that never finishes', async () => {
     await fsp.writeFile(artifactPath, Buffer.alloc(1024, 1));
     s3Mock.on(PutObjectCommand).resolves({ VersionId: 'version-1' });

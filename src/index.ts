@@ -74,9 +74,9 @@ class ServerlessAwsCodeSigner {
     });
 
     // Hooks are registered unconditionally and `enabled` is read inside them.
-    // The vendor plugin decided in its constructor, which runs before Serverless
-    // has finished resolving variables -- an unresolved "${...}" is truthy, so
-    // the flag could not be trusted in either direction.
+    // Deciding in the constructor would be wrong: it runs before Serverless has
+    // finished resolving variables, and an unresolved "${...}" is truthy, so the
+    // flag could not be trusted in either direction.
     this.hooks = {
       'after:package:createDeploymentArtifacts': () => this.signFunctions(),
       'after:deploy:function:packageFunction': () => this.signFunctions(),

@@ -122,3 +122,4 @@ Expect `InvalidCodeSignatureException`. If this *succeeds*, your functions are n
 - [Configuration](./configuration.md) — every option, per-stage toggling, IAM
 - [How it works](./how-it-works.md) — the lifecycle hooks and template changes
 - [Troubleshooting](./troubleshooting.md) — every error and its fix
+- [Security policy](../SECURITY.md) — threat model, and what signing does not protect against

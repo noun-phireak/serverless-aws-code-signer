@@ -8,6 +8,12 @@ Sign Lambda deployment artifacts with [AWS Signer](https://docs.aws.amazon.com/s
 
 The signing happens *before* the framework hashes the zip, so `AWS::Lambda::Version.CodeSha256` always describes the bytes that actually reach Lambda.
 
+## Install
+
+```bash
+npm install --save-dev serverless-aws-code-signer
+```
+
 ```yaml
 plugins:
   - serverless-aws-code-signer
@@ -23,22 +29,27 @@ custom:
 
 That is the whole configuration. Everything else has a secure default.
 
+Both the signing profile and the bucket must already exist — see
+[Getting started](./docs/getting-started.md) for the AWS setup and for how to
+confirm that unsigned code is actually being rejected.
+
 ## Documentation
 
-| | |
+| Guide | Covers |
 | --- | --- |
 | [Getting started](./docs/getting-started.md) | AWS prerequisites, install, first signed deploy, how to verify it worked |
 | [Configuration](./docs/configuration.md) | Every option, per-stage toggling, IAM policies |
 | [How it works](./docs/how-it-works.md) | Lifecycle hooks, what it does to your CloudFormation template |
 | [Troubleshooting](./docs/troubleshooting.md) | Every error the plugin can raise, and the fix |
-| [Migrating from `@ioiotv/serverless-aws-signer`](./docs/migration.md) | One-line swap, plus the behaviour changes to expect |
+| [Security policy](./SECURITY.md) | Threat model, supported versions, reporting a vulnerability |
 | [Changelog](./CHANGELOG.md) | What changed in each release |
 
 ## Requirements
 
-- Node.js 20.19+
-- Serverless Framework v3 / [osls](https://github.com/oss-serverless/serverless) 3.x or 4.x
-- An existing AWS Signer profile and a **versioning-enabled** S3 bucket
+- **Node.js** 20.19 or later
+- **Serverless Framework** 3.x, or [osls](https://github.com/oss-serverless/serverless) 3.x / 4.x
+- **An existing AWS Signer profile**, `Active`, on the `AWSLambda-SHA384-ECDSA` platform
+- **An existing S3 bucket with versioning enabled** — AWS Signer addresses its input by version ID
 
 ## Design principles
 
@@ -54,6 +65,25 @@ Supported: `package.individually: true` and single-artifact packaging, `serverle
 
 Not implemented: Lambda layer signing, a standalone `serverless signer` CLI command.
 
+## Security
+
+This plugin sits in your deploy path and calls AWS Signer on your behalf. The
+[security policy](./SECURITY.md) documents the threat model — including what
+code signing does *not* protect against — and how to report a vulnerability
+privately.
+
+Releases are published from GitHub Actions with [npm provenance](https://docs.npmjs.com/generating-provenance-statements),
+so the published tarball is cryptographically linked to the commit and workflow
+run that built it. Verify your install with `npm audit signatures`.
+
+## Contributing
+
+Issues and pull requests are welcome at
+[github.com/noun-phireak/serverless-aws-code-signer](https://github.com/noun-phireak/serverless-aws-code-signer).
+
+Please do not report security vulnerabilities through public issues — follow the
+[security policy](./SECURITY.md) instead.
+
 ## License
 
-MIT
+[MIT](./LICENSE)

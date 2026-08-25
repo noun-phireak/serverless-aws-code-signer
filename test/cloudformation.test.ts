@@ -41,8 +41,8 @@ describe('applyCodeSigningConfig', () => {
     const configs = Object.values(resources).filter(
       (resource) => resource.Type === 'AWS::Lambda::CodeSigningConfig'
     );
-    // The vendor plugin created one per function and wired them all to the last
-    // one, leaving the rest orphaned in the template.
+    // One per function, all wired to the last one, would leave the rest
+    // orphaned in the template.
     expect(configs).toHaveLength(1);
     expect(resources[CODE_SIGNING_CONFIG_LOGICAL_ID]?.Properties).toMatchObject({
       AllowedPublishers: { SigningProfileVersionArns: [options.profileVersionArn] },

@@ -10,9 +10,9 @@ export interface CfnResource {
 /**
  * Add one CodeSigningConfig and point every user function at it.
  *
- * The vendor plugin created one config resource *per function* but attached the
- * last one to all of them from inside the same loop, leaving N-1 orphaned
- * resources in the template. One shared config is both correct and cheaper.
+ * One shared config, not one per function. Creating a resource per function and
+ * then pointing every function at the last one leaves N-1 orphans in the
+ * template. One shared config is both correct and cheaper.
  */
 export function applyCodeSigningConfig(
   resources: Record<string, CfnResource>,

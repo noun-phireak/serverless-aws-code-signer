@@ -136,7 +136,7 @@ The plugin polls `DescribeSigningJob` with exponential backoff — 1s, doubling 
 
 ### `retain`
 
-Accepted for drop-in compatibility with `@ioiotv/serverless-aws-signer` and **deliberately ignored**. This plugin never creates signing profiles or buckets, so it has nothing to retain. It is allowed in the schema purely so migrating configs do not trip the `additionalProperties: false` check. See [Migration](./migration.md).
+Accepted and **deliberately ignored**. This plugin never creates signing profiles or buckets, so it has nothing to retain. It is allowed in the schema so that configs carried over from other signing plugins do not trip the `additionalProperties: false` check. You can delete it whenever convenient.
 
 ## Per-stage configuration
 
