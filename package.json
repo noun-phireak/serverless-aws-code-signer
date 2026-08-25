@@ -1,6 +1,6 @@
 {
   "name": "serverless-aws-code-signer",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Sign Lambda deployment artifacts with AWS Signer. Fails closed, never creates signing profiles or buckets, and verifies the signed artifact on disk before CloudFormation hashes it.",
   "keywords": [
     "serverless",
@@ -43,6 +43,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
+    "ajv": "^8.20.0",
     "aws-sdk-client-mock": "^4.1.0",
     "typescript": "^5.6.0",
     "vitest": "^2.1.0"

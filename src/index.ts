@@ -150,20 +150,20 @@ class ServerlessAwsCodeSigner {
 
   private async signFunctions(): Promise<void> {
     const config = this.config();
+    if (!config.enabled) {
+      this.log.info('Code signing is disabled for this stage; artifacts left unsigned.');
+      return;
+    }
 
     // Accepted by the schema so old configs still load, but it does nothing.
-    // Silently ignoring a key the user believes is active sits badly next to
-    // the fail-closed handling everywhere else, so say so out loud.
+    // Only worth saying once signing is actually on -- warning about an ignored
+    // option on a stage that never signs is pure noise.
     if (this.serverless.service.custom?.signer?.retain !== undefined) {
       this.log.warning(
         'custom.signer.retain is accepted but ignored: this plugin never creates ' +
           'signing profiles or buckets, so there is nothing to retain. It will be ' +
           'removed in a future major version; you can delete it now.'
       );
-    }
-    if (!config.enabled) {
-      this.log.info('Code signing is disabled for this stage; artifacts left unsigned.');
-      return;
     }
 
     const targets = this.collectTargets();

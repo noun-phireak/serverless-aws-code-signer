@@ -137,7 +137,10 @@ export function resolveSignerConfig(raw: RawSignerConfig | undefined): ResolvedS
 export const configSchema = {
   type: 'object',
   properties: {
-    enabled: { type: ['boolean', 'string'] },
+    // Not `type: ['boolean','string']`: Serverless compiles plugin schemas with
+    // AJV in strict mode, which rejects union types outright (strictTypes) and
+    // aborts the whole framework before any plugin runs.
+    enabled: { anyOf: [{ type: 'boolean' }, { type: 'string' }] },
     profileName: { type: 'string' },
     signingPolicy: { enum: SIGNING_POLICIES },
     timeoutSeconds: { type: 'number' },

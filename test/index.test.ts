@@ -13,6 +13,7 @@ const PROFILE_ARN = 'arn:aws:signer:us-east-1:1234:/signing-profiles/my-profile/
 
 interface Overrides {
   retain?: unknown;
+  enabled?: unknown;
   functions?: Record<string, { name?: string; image?: unknown; package?: { artifact?: string } }>;
 }
 
@@ -28,6 +29,7 @@ const build = (overrides: Overrides = {}) => {
           profileName: 'my-profile',
           source: { s3: { bucketName: 'bucket' } },
           ...(overrides.retain !== undefined ? { retain: overrides.retain } : {}),
+          ...(overrides.enabled !== undefined ? { enabled: overrides.enabled } : {}),
         },
       },
       // No `package.individually`, so there is a single service artifact and
@@ -66,6 +68,16 @@ describe('retain', () => {
 
     const warned = log.warning.mock.calls.map((c: string[]) => c[0]).join('\n');
     expect(warned).toMatch(/retain is accepted but ignored/);
+  });
+
+  it('stays silent when signing is disabled for the stage', async () => {
+    const { plugin, log } = build({ retain: true, enabled: false });
+    await plugin.signFunctions();
+
+    // Warning about an ignored option on a stage that never signs is noise.
+    const warned = log.warning.mock.calls.map((c: string[]) => c[0]).join('\n');
+    expect(warned).not.toMatch(/retain/);
+    expect(log.info.mock.calls.flat().join('\n')).toMatch(/disabled for this stage/);
   });
 
   it('says nothing when retain is absent', async () => {

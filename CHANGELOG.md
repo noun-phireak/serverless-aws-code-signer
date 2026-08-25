@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.3] - 2026-08-25
+
+### Fixed
+
+- **The plugin could not be loaded at all.** `custom.signer.enabled` was declared
+  as a union type (`type: ['boolean', 'string']`), which AJV rejects under the
+  strict mode Serverless compiles plugin schemas with. Any `serverless` command
+  failed with "At least one of the plugins defines a validation schema that is
+  invalid" before a single hook ran, and the message names no plugin. Declared as
+  `anyOf` instead; accepted values are unchanged.
+- The `retain` deprecation warning no longer fires when signing is disabled for
+  the stage. A disabled plugin now stays silent instead of warning about an
+  option it was never going to act on.
+
+### Added
+
+- A test that compiles the config schema with AJV in strict mode, so an
+  unloadable schema cannot reach a release again.
+
 ## [1.0.2] - 2026-08-25
 
 ### Added
@@ -80,6 +99,7 @@ Initial release.
 - `AllowedPublishers` pins the signing profile *version* ARN, so rotating the
   profile stops the previous version being trusted on the next deploy.
 
-[Unreleased]: https://github.com/noun-phireak/serverless-aws-code-signer/compare/v1.0.2...HEAD
+[Unreleased]: https://github.com/noun-phireak/serverless-aws-code-signer/compare/v1.0.3...HEAD
+[1.0.3]: https://github.com/noun-phireak/serverless-aws-code-signer/compare/v1.0.2...v1.0.3
 [1.0.2]: https://github.com/noun-phireak/serverless-aws-code-signer/compare/v1.0.0...v1.0.2
 [1.0.0]: https://github.com/noun-phireak/serverless-aws-code-signer/releases/tag/v1.0.0
