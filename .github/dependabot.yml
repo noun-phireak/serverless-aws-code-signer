@@ -1,0 +1,33 @@
+version: 2
+
+updates:
+  # The plugin's own dependencies. A code-signing tool running on a stale,
+  # unpatched dependency tree undercuts its own premise.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    labels: [dependencies]
+    groups:
+      # The AWS SDK publishes near-daily across many packages; without
+      # grouping these alone would bury everything else.
+      aws-sdk:
+        patterns:
+          - '@aws-sdk/*'
+      dev-dependencies:
+        dependency-type: development
+        update-types: [minor, patch]
+
+  # Pinned action versions go stale silently and are a supply-chain path
+  # straight into the workflow that publishes this package.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    labels: [dependencies, github-actions]
+    groups:
+      actions:
+        patterns: ['*']

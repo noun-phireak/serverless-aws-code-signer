@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.1.0] - 2026-08-25
+## [1.0.0] - 2026-08-25
 
 Initial release.
 
@@ -62,5 +62,5 @@ Initial release.
 - `AllowedPublishers` pins the signing profile *version* ARN, so rotating the
   profile stops the previous version being trusted on the next deploy.
 
-[Unreleased]: https://github.com/noun-phireak/serverless-aws-code-signer/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/noun-phireak/serverless-aws-code-signer/releases/tag/v0.1.0
+[Unreleased]: https://github.com/noun-phireak/serverless-aws-code-signer/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/noun-phireak/serverless-aws-code-signer/releases/tag/v1.0.0
