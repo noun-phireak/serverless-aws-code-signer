@@ -45,6 +45,7 @@ class ServerlessAwsCodeSigner {
 
   private s3Client?: S3Client;
   private signerClient?: SignerClient;
+  private profileArn?: { profileName: string; arn: string };
 
   constructor(
     serverless: ServerlessLike,
@@ -102,6 +103,19 @@ class ServerlessAwsCodeSigner {
     return resolveSignerConfig(this.serverless.service.custom?.signer);
   }
 
+  /**
+   * Resolve the profile version ARN, once per profile per process.
+   *
+   * Both hooks need it, and the answer cannot change mid-deploy: pinning the
+   * same version ARN in the template that was used to sign is the point.
+   */
+  private async resolveProfileVersionArn(profileName: string): Promise<string> {
+    if (this.profileArn?.profileName === profileName) return this.profileArn.arn;
+    const arn = await getActiveProfileVersionArn(this.signer, profileName);
+    this.profileArn = { profileName, arn };
+    return arn;
+  }
+
   private collectTargets(): SigningTarget[] {
     const service = this.serverless.service;
     const functions = service.functions ?? {};
@@ -136,6 +150,17 @@ class ServerlessAwsCodeSigner {
 
   private async signFunctions(): Promise<void> {
     const config = this.config();
+
+    // Accepted by the schema so old configs still load, but it does nothing.
+    // Silently ignoring a key the user believes is active sits badly next to
+    // the fail-closed handling everywhere else, so say so out loud.
+    if (this.serverless.service.custom?.signer?.retain !== undefined) {
+      this.log.warning(
+        'custom.signer.retain is accepted but ignored: this plugin never creates ' +
+          'signing profiles or buckets, so there is nothing to retain. It will be ' +
+          'removed in a future major version; you can delete it now.'
+      );
+    }
     if (!config.enabled) {
       this.log.info('Code signing is disabled for this stage; artifacts left unsigned.');
       return;
@@ -149,7 +174,7 @@ class ServerlessAwsCodeSigner {
 
     // Validate the whole environment before touching any artifact, so a
     // misconfigured profile fails before half the functions are signed.
-    await getActiveProfileVersionArn(this.signer, config.profileName);
+    await this.resolveProfileVersionArn(config.profileName);
     await assertBucketExists(this.s3, config.source.bucketName);
     if (config.destination.bucketName !== config.source.bucketName) {
       await assertBucketExists(this.s3, config.destination.bucketName);
@@ -172,7 +197,7 @@ class ServerlessAwsCodeSigner {
     const resources = this.serverless.service.provider.compiledCloudFormationTemplate?.Resources;
     if (!resources) return;
 
-    const profileVersionArn = await getActiveProfileVersionArn(this.signer, config.profileName);
+    const profileVersionArn = await this.resolveProfileVersionArn(config.profileName);
     const userFunctionNames = new Set(
       Object.values(this.serverless.service.functions ?? {})
         .map((functionObject) => functionObject.name)

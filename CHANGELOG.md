@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.2] - 2026-08-25
+
+### Added
+
+- `custom.signer.retain` now logs a warning saying it is ignored, instead of
+  being silently dropped. It remains accepted so existing configs keep loading,
+  and is scheduled for removal in the next major version.
+
+### Changed
+
+- The signing profile is looked up once per deploy instead of once per lifecycle
+  hook, halving the `GetSigningProfile` calls a deploy makes. The resolved
+  profile version ARN is unchanged: the same value is used to sign and to pin
+  `AllowedPublishers` in the template.
+- CI now runs on `actions/checkout@v7` and `actions/setup-node@v7`, clearing the
+  GitHub Actions Node 20 runtime deprecation warning.
+
 ## [1.0.0] - 2026-08-25
 
 Initial release.
@@ -63,5 +80,6 @@ Initial release.
 - `AllowedPublishers` pins the signing profile *version* ARN, so rotating the
   profile stops the previous version being trusted on the next deploy.
 
-[Unreleased]: https://github.com/noun-phireak/serverless-aws-code-signer/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/noun-phireak/serverless-aws-code-signer/compare/v1.0.2...HEAD
+[1.0.2]: https://github.com/noun-phireak/serverless-aws-code-signer/compare/v1.0.0...v1.0.2
 [1.0.0]: https://github.com/noun-phireak/serverless-aws-code-signer/releases/tag/v1.0.0
