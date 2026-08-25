@@ -1,9 +1,16 @@
+import { promises as fsp } from 'node:fs';
 import path from 'node:path';
 
 import { S3Client } from '@aws-sdk/client-s3';
 import { SignerClient } from '@aws-sdk/client-signer';
 
-import { applyCodeSigningConfig, type CfnResource } from './cloudformation';
+import {
+  applyCodeSigningConfig,
+  CUSTOM_RESOURCE_ARTIFACT_NAME,
+  isFrameworkCustomResource,
+  type ApplyResult,
+  type CfnResource,
+} from './cloudformation';
 import { configSchema, resolveSignerConfig } from './config';
 import { assertBucketExists, getActiveProfileVersionArn, signArtifact, SigningError } from './signing';
 import type { Logger, RawSignerConfig, ResolvedSignerConfig, SigningTarget } from './types';
@@ -46,6 +53,7 @@ class ServerlessAwsCodeSigner {
   private s3Client?: S3Client;
   private signerClient?: SignerClient;
   private profileArn?: { profileName: string; arn: string };
+  private bucketsAsserted = false;
 
   constructor(
     serverless: ServerlessLike,
@@ -64,6 +72,7 @@ class ServerlessAwsCodeSigner {
     };
     const noop = (): void => undefined;
     this.log = {
+      notice: pluginLog?.notice ? (message): void => pluginLog.notice?.(message) : cliLog,
       info: pluginLog?.info ? (message): void => pluginLog.info?.(message) : cliLog,
       warning: pluginLog?.warning ? (message): void => pluginLog.warning?.(message) : cliLog,
       debug: pluginLog?.debug ? (message): void => pluginLog.debug?.(message) : noop,
@@ -116,6 +125,21 @@ class ServerlessAwsCodeSigner {
     return arn;
   }
 
+  /**
+   * Assert both buckets exist, once per process.
+   *
+   * Both the artifact loop and the custom-resource artifact need this, and the
+   * answer cannot change mid-deploy.
+   */
+  private async assertBuckets(config: ResolvedSignerConfig): Promise<void> {
+    if (this.bucketsAsserted) return;
+    await assertBucketExists(this.s3, config.source.bucketName);
+    if (config.destination.bucketName !== config.source.bucketName) {
+      await assertBucketExists(this.s3, config.destination.bucketName);
+    }
+    this.bucketsAsserted = true;
+  }
+
   private collectTargets(): SigningTarget[] {
     const service = this.serverless.service;
     const functions = service.functions ?? {};
@@ -151,7 +175,7 @@ class ServerlessAwsCodeSigner {
   private async signFunctions(): Promise<void> {
     const config = this.config();
     if (!config.enabled) {
-      this.log.info('Code signing is disabled for this stage; artifacts left unsigned.');
+      this.log.notice('Code signing is disabled for this stage; artifacts left unsigned.');
       return;
     }
 
@@ -168,22 +192,20 @@ class ServerlessAwsCodeSigner {
 
     const targets = this.collectTargets();
     if (targets.length === 0) {
-      this.log.info('No function artifacts to sign.');
+      this.log.warning('Code signing is enabled but no function artifacts were found to sign.');
       return;
     }
 
     // Validate the whole environment before touching any artifact, so a
     // misconfigured profile fails before half the functions are signed.
-    await this.resolveProfileVersionArn(config.profileName);
-    await assertBucketExists(this.s3, config.source.bucketName);
-    if (config.destination.bucketName !== config.source.bucketName) {
-      await assertBucketExists(this.s3, config.destination.bucketName);
-    }
+    const profileVersionArn = await this.resolveProfileVersionArn(config.profileName);
+    await this.assertBuckets(config);
 
-    this.log.info(
-      `Signing ${targets.length} artifact(s) with profile "${config.profileName}" ` +
+    this.log.notice(
+      `Signing ${targets.length} artifact(s) with AWS Signer profile "${config.profileName}" ` +
         `(policy ${config.signingPolicy})`
     );
+    this.log.info(`Signing profile version ARN: ${profileVersionArn}`);
 
     for (const target of targets) {
       await signArtifact({ s3: this.s3, signer: this.signer, log: this.log }, config, target);
@@ -204,11 +226,113 @@ class ServerlessAwsCodeSigner {
         .filter((name): name is string => typeof name === 'string')
     );
 
-    applyCodeSigningConfig(resources, {
+    // Sign the framework's artifact before anything points at the signing
+    // config: attaching an Enforce policy to a function whose zip is unsigned
+    // turns the deploy into a CloudFormation failure at CreateFunction time.
+    const hasCustomResources = Object.values(resources).some(
+      (resource) => resource.Type === 'AWS::Lambda::Function' && isFrameworkCustomResource(resource)
+    );
+    if (hasCustomResources && config.signCustomResources) {
+      await this.signCustomResourceArtifact(config);
+    }
+
+    const attached = applyCodeSigningConfig(resources, {
       profileVersionArn,
       signingPolicy: config.signingPolicy,
       serviceName: this.serverless.service.getServiceName(),
       userFunctionNames,
+      includeCustomResources: config.signCustomResources,
+    });
+
+    const custom =
+      attached.customResourceFunctions > 0
+        ? ` and ${attached.customResourceFunctions} Serverless-generated function(s)`
+        : '';
+    this.log.notice(
+      `Attached CodeSigningConfig (${config.signingPolicy}) to ` +
+        `${attached.userFunctions} function(s)${custom}`
+    );
+    this.log.info(`AllowedPublishers pins ${profileVersionArn}`);
+
+    this.reportCoverageGaps(attached);
+  }
+
+  /**
+   * Name every function in the template that is not covered by the signing
+   * config, and why.
+   *
+   * If signing is on, the intent is that every function in the stack is signed.
+   * Whatever this plugin cannot sign is therefore reported by name rather than
+   * skipped quietly, so "is everything in this stack signed?" is answerable from
+   * the deploy log instead of assumed.
+   */
+  private reportCoverageGaps(attached: ApplyResult): void {
+    if (attached.skippedCustomResourceFunctions.length > 0) {
+      this.log.warning(
+        `${attached.skippedCustomResourceFunctions.length} Lambda(s) generated by Serverless ` +
+          'will deploy UNSIGNED because `custom.signer.signCustomResources` is set to false: ' +
+          `${attached.skippedCustomResourceFunctions.join(', ')}. ` +
+          'Remove that setting to sign them.'
+      );
+    }
+
+    if (attached.unsignableFunctions.length > 0) {
+      this.log.warning(
+        `${attached.unsignableFunctions.length} Lambda(s) in this stack are NOT signed and ` +
+          'cannot be by this plugin, because another plugin injected them and their ' +
+          `artifacts are not ours to locate: ${attached.unsignableFunctions.join(', ')}. ` +
+          'Sign them at their source, or accept them as out of scope.'
+      );
+    }
+
+    if (attached.imageFunctions.length > 0) {
+      this.log.notice(
+        `${attached.imageFunctions.length} container-image function(s) carry no code-signing ` +
+          `config: ${attached.imageFunctions.join(', ')}. ` +
+          'AWS Signer does not cover images -- that is ECR image signing, a separate mechanism.'
+      );
+    }
+  }
+
+  /**
+   * Sign the shared artifact behind the framework's custom-resource Lambdas.
+   *
+   * Safe to do here, and only here. The zip does not exist at
+   * `after:package:createDeploymentArtifacts` -- Serverless writes it during
+   * `package:compileEvents` -- and it is read back off disk at `deploy:deploy`,
+   * so `before:package:finalize` is the one window where it is both present and
+   * not yet uploaded.
+   *
+   * Unlike the function artifacts, no `AWS::Lambda::Version` hashes this zip, so
+   * signing it after `package:compileFunctions` carries no CodeSha256 risk. The
+   * file is also a plain copy of the framework's global cache in
+   * `~/.serverless/artifacts/`, so overwriting it here cannot poison that cache
+   * for other services.
+   */
+  private async signCustomResourceArtifact(config: ResolvedSignerConfig): Promise<void> {
+    const artifactPath = path.resolve(
+      this.serviceDir,
+      '.serverless',
+      CUSTOM_RESOURCE_ARTIFACT_NAME
+    );
+
+    try {
+      await fsp.access(artifactPath);
+    } catch {
+      throw new SigningError(
+        `The template contains Serverless-generated custom-resource Lambdas but ` +
+          `${artifactPath} does not exist, so it cannot be signed. Refusing to attach an ` +
+          'Enforce code-signing policy to a function whose artifact was never signed.'
+      );
+    }
+
+    await this.resolveProfileVersionArn(config.profileName);
+    await this.assertBuckets(config);
+
+    this.log.notice('Signing the Serverless-generated custom-resource artifact');
+    await signArtifact({ s3: this.s3, signer: this.signer, log: this.log }, config, {
+      functionName: 'custom-resources',
+      artifactPath,
     });
   }
 }

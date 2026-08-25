@@ -25,6 +25,8 @@ describe('configSchema', () => {
     expect(validate({ enabled: true })).toBe(true);
     expect(validate({ enabled: 'false' })).toBe(true);
     expect(validate({ retain: true })).toBe(true);
+    expect(validate({ signCustomResources: true })).toBe(true);
+    expect(validate({ signCustomResources: 'false' })).toBe(true);
     expect(validate({ signingPolicy: 'Enforce' })).toBe(true);
     expect(validate({ signingPolicy: 'Warn' })).toBe(true);
   });
@@ -33,6 +35,7 @@ describe('configSchema', () => {
     const validate = new Ajv({ strict: true }).compile(configSchema);
 
     expect(validate({ enabled: 123 })).toBe(false);
+    expect(validate({ signCustomResources: 123 })).toBe(false);
     expect(validate({ signingPolicy: 'enforce' })).toBe(false);
     expect(validate({ typoedKey: 1 })).toBe(false);
     expect(validate({ source: { s3: { prefix: 'p/' } } })).toBe(false); // bucketName required

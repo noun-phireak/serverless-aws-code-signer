@@ -79,3 +79,35 @@ describe('resolveSignerConfig', () => {
     expect(() => resolveSignerConfig({ ...validRaw, retain: true })).not.toThrow();
   });
 });
+
+describe('signCustomResources', () => {
+  // If signing is on at all, every function this plugin can sign gets signed.
+  // Leaving a framework-injected Lambda unsigned is a gap, not a default.
+  it('defaults to on, so opting out is the deliberate choice', () => {
+    expect(resolveSignerConfig(validRaw).signCustomResources).toBe(true);
+  });
+
+  it('accepts booleans and the strings serverless produces for them', () => {
+    expect(
+      resolveSignerConfig({ ...validRaw, signCustomResources: true }).signCustomResources
+    ).toBe(true);
+    expect(
+      resolveSignerConfig({ ...validRaw, signCustomResources: 'true' }).signCustomResources
+    ).toBe(true);
+    expect(
+      resolveSignerConfig({ ...validRaw, signCustomResources: 'false' }).signCustomResources
+    ).toBe(false);
+  });
+
+  it('refuses to guess when the variable is unresolved', () => {
+    expect(() =>
+      resolveSignerConfig({ ...validRaw, signCustomResources: '${self:custom.signCustom}' })
+    ).toThrow(/unresolved/i);
+  });
+
+  it('rejects values that are neither boolean nor boolean-ish', () => {
+    expect(() => resolveSignerConfig({ ...validRaw, signCustomResources: 'yes' })).toThrow(
+      SignerConfigError
+    );
+  });
+});

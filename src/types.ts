@@ -6,6 +6,7 @@ export interface RawSignerConfig {
   profileName?: unknown;
   signingPolicy?: unknown;
   timeoutSeconds?: unknown;
+  signCustomResources?: unknown;
   source?: { s3?: { bucketName?: unknown; prefix?: unknown } };
   destination?: { s3?: { bucketName?: unknown; prefix?: unknown } };
   /**
@@ -21,6 +22,7 @@ export interface ResolvedSignerConfig {
   profileName: string;
   signingPolicy: SigningPolicy;
   timeoutSeconds: number;
+  signCustomResources: boolean;
   source: { bucketName: string; prefix: string };
   destination: { bucketName: string; prefix: string };
 }
@@ -31,6 +33,14 @@ export interface SigningTarget {
 }
 
 export interface Logger {
+  /**
+   * Serverless log levels are ordered error > warning > notice > info > debug,
+   * and the default threshold is `notice` -- `info` and below are only shown
+   * under `--verbose`. Anything that answers "did this deploy get signed, and
+   * with what?" must therefore be `notice`, not `info`, or it is invisible in
+   * exactly the CI log where the answer matters.
+   */
+  notice(message: string): void;
   info(message: string): void;
   warning(message: string): void;
   debug(message: string): void;

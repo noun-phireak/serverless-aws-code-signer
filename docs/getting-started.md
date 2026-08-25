@@ -73,12 +73,33 @@ Those three values are the only required ones. Everything else — the signing p
 serverless deploy
 ```
 
-You will see a line per artifact:
+You will see a line per artifact, at normal verbosity — no `--verbose` needed:
 
 ```
-Signing 3 artifact(s) with profile "my-signing-profile" (policy Enforce)
-Signed api.zip (2847213 bytes, CodeSha256 K7pQ..., job 9f3c1b2a-...)
+Signing 3 artifact(s) with AWS Signer profile "my-signing-profile" (policy Enforce)
+Signed api -> api.zip (2847213 bytes, CodeSha256 K7pQ..., job 9f3c1b2a-...)
+Signed worker -> worker.zip (1183422 bytes, CodeSha256 t2Xv..., job 4a81de07-...)
+Signed cron -> cron.zip (982110 bytes, CodeSha256 9dLm..., job c50b7f14-...)
+Attached CodeSigningConfig (Enforce) to 3 function(s)
 ```
+
+If your service uses `existing: true` S3 events, EventBridge, Cognito user pools
+or any `http` event, Serverless also injects Lambdas of its own. Those are signed
+too, by default, and appear in the same line:
+
+```
+Signing the Serverless-generated custom-resource artifact
+Signed custom-resources -> custom-resources.zip (48122 bytes, CodeSha256 R4nK..., job 7b2e...)
+Attached CodeSigningConfig (Enforce) to 3 function(s) and 1 Serverless-generated function(s)
+```
+
+Anything the plugin *cannot* sign — Lambdas injected by third-party plugins,
+container-image functions — is named in a warning rather than skipped quietly.
+See [coverage accounting](./configuration.md#coverage-accounting).
+
+**If you see none of these lines, nothing was signed.** A deploy that signs is
+never silent. See [Troubleshooting → the deploy log shows no signing
+lines](./troubleshooting.md#the-deploy-log-shows-no-signing-lines).
 
 ## Verify it worked
 

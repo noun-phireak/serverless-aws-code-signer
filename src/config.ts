@@ -12,21 +12,21 @@ export class SignerConfigError extends Error {
 }
 
 /**
- * Decide whether signing runs.
+ * Parse a boolean-ish option.
  *
- * This is deliberately strict. An unresolved `${...}` is a hard error rather
- * than a truthy string, because a signing plugin that cannot tell whether it is
- * meant to run must never quietly pick an answer -- guessing "on" ships an
- * unwanted signature, guessing "off" ships unsigned code.
+ * Deliberately strict. An unresolved `${...}` is a hard error rather than a
+ * truthy string, because a signing plugin that cannot tell whether it is meant
+ * to run must never quietly pick an answer -- guessing "on" ships an unwanted
+ * signature, guessing "off" ships unsigned code.
  */
-export function parseEnabled(value: unknown): boolean {
-  if (value === undefined || value === null) return true;
+function parseBoolean(value: unknown, propertyPath: string, fallback: boolean): boolean {
+  if (value === undefined || value === null) return fallback;
   if (typeof value === 'boolean') return value;
 
   if (typeof value === 'string') {
     if (UNRESOLVED_VARIABLE.test(value)) {
       throw new SignerConfigError(
-        `custom.signer.enabled is still an unresolved variable ("${value}"). ` +
+        `${propertyPath} is still an unresolved variable ("${value}"). ` +
           'Refusing to guess whether code signing should run. Check that the ' +
           'variable resolves for this stage before deploying.'
       );
@@ -37,9 +37,14 @@ export function parseEnabled(value: unknown): boolean {
   }
 
   throw new SignerConfigError(
-    'custom.signer.enabled must be a boolean (or the string "true"/"false"), ' +
+    `${propertyPath} must be a boolean (or the string "true"/"false"), ` +
       `received ${JSON.stringify(value)}.`
   );
+}
+
+/** Decide whether signing runs at all. Absent means on. */
+export function parseEnabled(value: unknown): boolean {
+  return parseBoolean(value, 'custom.signer.enabled', true);
 }
 
 function requireResolvedString(value: unknown, propertyPath: string): string {
@@ -101,6 +106,7 @@ export function resolveSignerConfig(raw: RawSignerConfig | undefined): ResolvedS
       profileName: '',
       signingPolicy: 'Enforce',
       timeoutSeconds: DEFAULT_TIMEOUT_SECONDS,
+      signCustomResources: false,
       source: { bucketName: '', prefix: '' },
       destination: { bucketName: '', prefix: '' },
     };
@@ -120,6 +126,14 @@ export function resolveSignerConfig(raw: RawSignerConfig | undefined): ResolvedS
     profileName: requireResolvedString(raw.profileName, 'custom.signer.profileName'),
     signingPolicy: parseSigningPolicy(raw.signingPolicy),
     timeoutSeconds: parseTimeoutSeconds(raw.timeoutSeconds),
+    // Defaults to on. If signing is enabled at all, every function this plugin
+    // *can* sign gets signed; leaving a framework-injected Lambda unsigned is a
+    // gap, not a default.
+    signCustomResources: parseBoolean(
+      raw.signCustomResources,
+      'custom.signer.signCustomResources',
+      true
+    ),
     source: {
       bucketName: sourceBucket,
       prefix: optionalResolvedString(raw.source?.s3?.prefix, 'custom.signer.source.s3.prefix'),
@@ -144,6 +158,7 @@ export const configSchema = {
     profileName: { type: 'string' },
     signingPolicy: { enum: SIGNING_POLICIES },
     timeoutSeconds: { type: 'number' },
+    signCustomResources: { anyOf: [{ type: 'boolean' }, { type: 'string' }] },
     retain: { type: 'boolean' },
     source: {
       type: 'object',

@@ -160,6 +160,7 @@ export async function signArtifact(
 ): Promise<void> {
   const { s3, signer, log } = clients;
   const artifactName = path.basename(target.artifactPath);
+  log.info(`Signing ${target.functionName} (${artifactName})`);
   const localBytes = await fsp.readFile(target.artifactPath);
 
   if (localBytes.length === 0) {
@@ -232,8 +233,11 @@ export async function signArtifact(
     );
   }
 
-  log.info(
-    `Signed ${artifactName} (${signedBytes.length} bytes, ` +
+  // `notice`, not `info`: this line is the deploy's proof that the artifact was
+  // signed and what it hashes to. At `info` it is invisible without --verbose,
+  // which is precisely where the question gets asked -- a CI log.
+  log.notice(
+    `Signed ${target.functionName} -> ${artifactName} (${signedBytes.length} bytes, ` +
       `CodeSha256 ${sha256Base64(signedBytes)}, job ${started.jobId})`
   );
 }

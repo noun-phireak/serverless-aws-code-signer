@@ -29,13 +29,19 @@ import type { Logger, ResolvedSignerConfig } from '../src/types';
 const s3Mock = mockClient(S3Client);
 const signerMock = mockClient(SignerClient);
 
-const silentLog: Logger = { info: () => undefined, warning: () => undefined, debug: () => undefined };
+const silentLog: Logger = {
+  notice: () => undefined,
+  info: () => undefined,
+  warning: () => undefined,
+  debug: () => undefined,
+};
 
 const config: ResolvedSignerConfig = {
   enabled: true,
   profileName: 'my-profile',
   signingPolicy: 'Enforce',
   timeoutSeconds: 5,
+  signCustomResources: false,
   source: { bucketName: 'artifacts', prefix: 'staging/' },
   destination: { bucketName: 'artifacts', prefix: 'signed/' },
 };
@@ -135,6 +141,26 @@ describe('signArtifact', () => {
 
     const sha = createHash('sha256').update(onDisk).digest('base64');
     expect(sha).not.toBe(EMPTY_FILE_SHA256);
+  });
+
+  it('reports the signed artifact on notice, not info', async () => {
+    const signedBytes = Buffer.alloc(2048, 7);
+    await fsp.writeFile(artifactPath, Buffer.alloc(1024, 1));
+    stubSuccessfulSigning(signedBytes);
+
+    const noticed: string[] = [];
+    const log: Logger = { ...silentLog, notice: (message) => noticed.push(message) };
+
+    await signArtifact({ ...clients(), log }, config, { functionName: 'myFunction', artifactPath });
+
+    // The default Serverless log threshold is `notice`; at `info` this line is
+    // invisible without --verbose, and a CI log is exactly where "was this
+    // deploy signed, and what does it hash to?" gets asked.
+    const line = noticed.join('\n');
+    expect(line).toMatch(/Signed myFunction/);
+    expect(line).toMatch(new RegExp(`${signedBytes.length} bytes`));
+    expect(line).toMatch(/CodeSha256 [A-Za-z0-9+/=]+/);
+    expect(line).toMatch(/job job-1/);
   });
 
   it('refuses to sign a zero-byte artifact', async () => {

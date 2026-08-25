@@ -59,11 +59,13 @@ confirm that unsigned code is actually being rejected.
 
 **Verify what you ship.** The signed artifact is read back off disk and its size checked against what was written, and its `CodeSha256` is logged, so a CloudFormation mismatch is diagnosable from the deploy log alone.
 
+**Account for every function.** If signing is on, everything the plugin can sign is signed — including the Lambdas Serverless injects for `existing: true` events, EventBridge and Cognito. Whatever cannot be signed is named in the deploy log, so "is this whole stack signed?" is answerable rather than assumed.
+
 ## Scope
 
-Supported: `package.individually: true` and single-artifact packaging, `serverless deploy`, `serverless deploy function`, per-stage enable/disable, container-image functions (skipped, not an error).
+Supported: `package.individually: true` and single-artifact packaging, `serverless deploy`, `serverless deploy function`, per-stage enable/disable, container-image functions (skipped, not an error), and the Lambdas Serverless generates for itself — `existing: true` events, EventBridge, Cognito user pools, the API Gateway CloudWatch role — which are signed by default.
 
-Not implemented: Lambda layer signing, a standalone `serverless signer` CLI command.
+Not implemented: Lambda layer signing, signing Lambdas injected by third-party plugins, a standalone `serverless signer` CLI command. Both are **reported by name** in the deploy log rather than silently skipped.
 
 ## Security
 
