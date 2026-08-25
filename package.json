@@ -1,0 +1,50 @@
+{
+  "name": "serverless-aws-code-signer",
+  "version": "0.1.0",
+  "description": "Sign Lambda deployment artifacts with AWS Signer. Fails closed, never creates signing profiles or buckets, and verifies the signed artifact on disk before CloudFormation hashes it.",
+  "keywords": [
+    "serverless",
+    "serverless-plugin",
+    "aws",
+    "aws-signer",
+    "lambda",
+    "code-signing",
+    "supply-chain"
+  ],
+  "license": "MIT",
+  "author": "phireak <noun.phireak@gmail.com>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/phireak/serverless-aws-code-signer.git"
+  },
+  "bugs": {
+    "url": "https://github.com/phireak/serverless-aws-code-signer/issues"
+  },
+  "homepage": "https://github.com/phireak/serverless-aws-code-signer#readme",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "clean": "rm -rf dist",
+    "lint": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "prepublishOnly": "npm run clean && npm run build && npm test"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.700.0",
+    "@aws-sdk/client-signer": "^3.700.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "aws-sdk-client-mock": "^4.1.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  }
+}
