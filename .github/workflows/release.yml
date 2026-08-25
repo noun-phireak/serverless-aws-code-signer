@@ -1,0 +1,101 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*.*.*']
+
+permissions:
+  contents: read
+
+jobs:
+  # Full CI matrix must pass on the tagged commit before anything is published.
+  # `npm publish` is irreversible in practice -- unpublish only works within 72
+  # hours, and a version number can never be reused.
+  verify:
+    uses: ./.github/workflows/ci.yml
+
+  preflight:
+    name: Preflight
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Tag must match package.json version
+        id: version
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          pkg="$(node -p "require('./package.json').version")"
+          if [ "$tag" != "$pkg" ]; then
+            echo "::error::tag v$tag does not match package.json version $pkg"
+            exit 1
+          fi
+          echo "version=$pkg" >> "$GITHUB_OUTPUT"
+
+      - name: Version must not already be published
+        run: |
+          v="${{ steps.version.outputs.version }}"
+          if npm view "serverless-aws-code-signer@$v" version >/dev/null 2>&1; then
+            echo "::error::version $v is already on npm; bump the version"
+            exit 1
+          fi
+
+      - name: CHANGELOG must have an entry for this version
+        run: |
+          grep -q "^## \[${{ steps.version.outputs.version }}\]" CHANGELOG.md || {
+            echo "::error::no '## [${{ steps.version.outputs.version }}]' section in CHANGELOG.md"
+            exit 1
+          }
+
+  publish:
+    name: Publish to npm
+    needs: [verify, preflight]
+    runs-on: ubuntu-latest
+    # Configure this environment with required reviewers in repo settings to
+    # make publishing a manually-approved step.
+    environment:
+      name: npm-publish
+      url: https://www.npmjs.com/package/serverless-aws-code-signer
+    permissions:
+      contents: write   # create the GitHub Release
+      id-token: write   # mint the OIDC token that provenance is built from
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          registry-url: https://registry.npmjs.org
+          cache: npm
+
+      - run: npm ci
+
+      # prepublishOnly re-runs clean + build + test as a final gate.
+      - name: Publish with provenance
+        run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Extract release notes from CHANGELOG
+        run: |
+          awk -v v="${{ needs.preflight.outputs.version }}" '
+            $0 ~ "^## \\[" v "\\]" { found = 1; next }
+            found && /^## / { exit }
+            # Stop at the link-reference block at the foot of the file.
+            found && /^\\[[^]]+\\]: / { exit }
+            found { print }
+          ' CHANGELOG.md \
+            | sed -e :a -e '/./,$!d' -e '/^\n*$/{$d;N;ba' -e '}' \
+            > RELEASE_NOTES.md
+          test -s RELEASE_NOTES.md || { echo "::error::release notes are empty"; exit 1; }
+          echo "--- notes ---" && cat RELEASE_NOTES.md
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            --title "$GITHUB_REF_NAME" \
+            --notes-file RELEASE_NOTES.md \
+            --verify-tag

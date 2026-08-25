@@ -15,12 +15,12 @@
   "author": "phireak <noun.phireak@gmail.com>",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/phireak/serverless-aws-code-signer.git"
+    "url": "git+https://github.com/noun-phireak/serverless-aws-code-signer.git"
   },
   "bugs": {
-    "url": "https://github.com/phireak/serverless-aws-code-signer/issues"
+    "url": "https://github.com/noun-phireak/serverless-aws-code-signer/issues"
   },
-  "homepage": "https://github.com/phireak/serverless-aws-code-signer#readme",
+  "homepage": "https://github.com/noun-phireak/serverless-aws-code-signer#readme",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [

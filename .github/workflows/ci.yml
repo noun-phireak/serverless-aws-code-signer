@@ -1,0 +1,90 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  # Lets release.yml gate a publish on this exact suite, rather than
+  # maintaining a second copy of it that can drift.
+  workflow_call:
+
+# Cancel superseded runs on the same branch/PR.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Node ${{ matrix.node }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # `engines` declares >=18, so every version claimed is tested.
+        node: ['18', '20', '22', '24']
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      - run: npm ci
+
+      - name: Typecheck
+        run: npm run lint
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+  package:
+    name: Verify published package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      # Catches the failure mode where the tarball is missing dist/ or the
+      # entry points in package.json do not resolve once installed.
+      - name: Pack and inspect
+        run: |
+          npm pack
+          tar -tzf serverless-aws-code-signer-*.tgz | sort
+
+      - name: Assert entry points exist in the tarball
+        run: |
+          tar -tzf serverless-aws-code-signer-*.tgz > files.txt
+          for f in package/dist/index.js package/dist/index.d.ts package/README.md package/LICENSE; do
+            grep -qx "$f" files.txt || { echo "::error::$f missing from tarball"; exit 1; }
+          done
+
+      # A Serverless plugin is `require`d by the framework, so the built
+      # CommonJS entry point must load cleanly from a real install.
+      - name: Smoke-test the tarball
+        run: |
+          mkdir -p /tmp/consumer && cd /tmp/consumer
+          npm init -y >/dev/null
+          npm install "$GITHUB_WORKSPACE"/serverless-aws-code-signer-*.tgz >/dev/null
+          node -e "
+            const P = require('serverless-aws-code-signer');
+            if (typeof P !== 'function') throw new Error('entry point is not a constructor');
+            console.log('loaded OK:', P.name);
+          "
