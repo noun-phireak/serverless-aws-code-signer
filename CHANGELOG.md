@@ -38,6 +38,7 @@ Initial release.
 - Structured logging via the Serverless v3 logger, falling back to
   `serverless.cli.log` on older versions.
 - TypeScript type definitions.
+- Requires Node.js 20.19 or later.
 
 ### Security
 

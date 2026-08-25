@@ -24,8 +24,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # `engines` declares >=18, so every version claimed is tested.
-        node: ['18', '20', '22', '24']
+        # `engines` declares >=20.19, so every version claimed is tested.
+        # Node 18 is dropped: it lacks node:util.styleText, which vitest 4
+        # requires, and it has been EOL since April 2025.
+        node: ['20', '22', '24']
 
     steps:
       - uses: actions/checkout@v4

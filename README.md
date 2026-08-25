@@ -36,7 +36,7 @@ That is the whole configuration. Everything else has a secure default.
 
 ## Requirements
 
-- Node.js 18+
+- Node.js 20.19+
 - Serverless Framework v3 / [osls](https://github.com/oss-serverless/serverless) 3.x or 4.x
 - An existing AWS Signer profile and a **versioning-enabled** S3 bucket
 
